@@ -91,15 +91,23 @@ void MUX74HC4067::disable()
 // sig - Arduino pin to which the SIG pin connects
 // mode - either INPUT or OUTPUT or INPUT_PULLUP
 // type - either DIGITAL, ANALOG or DIGITAL(pulseIn())
-void MUX74HC4067::signalPin(uint8_t sig, uint8_t mode, uint8_t type)
+void MUX74HC4067::signalPin(uint8_t sig, uint8_t mode, uint8_t type, unsigned long time)
 {
+
 	signal_pin = sig;
 
 	if (mode == INPUT)
 	{
 		signal_mode = INPUT;
-		digitalWrite(sig, LOW); // Disables pullup
+		digitalWrite(sig, LOW);
 		pinMode(sig, INPUT);
+
+		previousSteadyState = digitalRead(sig);
+		lastSteadyState = previousSteadyState;
+		lastFlickerableState = previousSteadyState;
+
+		debounceTime = time;
+		lastDebounceTime = 0;
 	}
 	else if (mode == OUTPUT)
 	{
@@ -126,14 +134,62 @@ void MUX74HC4067::signalPin(uint8_t sig, uint8_t mode, uint8_t type)
 	}
 }
 
-// It reads from the configured or requested channel
-// If the signal pin was set to DIGITAL, it returns HIGH or LOW
-// If the signal pin was set to ANALOG, it returns the value read by the A/D converter
-// It the signal pin was not set earlier, it returns -1
-// There is an optional arguments for changing momentarily the channel from which to read
-// This doesn't change the earlier configuration. e.g. If channel 7 was selected and its
-// connection was disabled, after reading the requested channel the configuration will
-// return to channel 7 disabled.
+void MUX74HC4067::checkTiming()
+{
+
+	if (signal_pin_status == 1)
+	{
+		// read the state of the switch/button:
+		int currentState = digitalRead(signal_pin);
+
+		unsigned long currentTime = millis();
+
+		Serial.println(debounceTime);
+
+		// check to see if you just pressed the button
+		// (i.e. the input went from LOW to HIGH), and you've waited long enough
+		// since the last press to ignore any noise:
+
+		// If the switch/button changed, due to noise or pressing:
+		if (currentState != lastFlickerableState)
+		{
+			// reset the debouncing timer
+			lastDebounceTime = currentTime;
+			// save the the last flickerable state
+			lastFlickerableState = currentState;
+		}
+
+		if ((currentTime - lastDebounceTime) >= debounceTime)
+		{
+			// whatever the reading is at, it's been there for longer than the debounce
+			// delay, so take it as the actual current state:
+
+			// save the the steady state
+			previousSteadyState = lastSteadyState;
+			lastSteadyState = currentState;
+		}
+	}
+}
+
+bool MUX74HC4067::isReleased(int8_t chan_pin)
+{
+	bool data = false;
+	uint8_t last_channel;
+	uint8_t last_en_status = enable_status;
+
+	if (chan_pin != -1)
+	{
+		last_channel = current_channel;
+		setChannel(chan_pin);
+	}
+
+	if (signal_pin_status == 1)
+	{
+		data = (previousSteadyState == LOW && lastSteadyState == HIGH);
+	}
+
+	return data;
+}
 
 int16_t MUX74HC4067::read(int8_t chan_pin)
 {
@@ -187,7 +243,7 @@ int16_t MUX74HC4067::read(int8_t chan_pin)
 //        specified in the argument list, data should be HIGH or LOW. If the signal pin was set
 //        to analog or ANALOG was specified in the argument list, data should the duty cycle of
 //        the PWM output.
-// type - An optional argument that is either ANALOG or DIGITAL, and overrides the ANALOG/DIGITAL
+// type - An optional argument that is either ANALOG or DIGITAL and overrides the ANALOG/DIGITAL
 //        configuration of the signal pin
 
 uint8_t MUX74HC4067::write(int8_t chan_pin, uint8_t data, int8_t type)
