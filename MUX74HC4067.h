@@ -20,7 +20,7 @@
 
 #define ANALOG 0
 #define DIGITAL 1
-#define DIGITAL_FOR_PULSE_IN 2
+#define DIGITAL_PULSE 2
 
 #define DISABLED 0
 #define ENABLED 1
@@ -34,9 +34,10 @@ public:
   void disable();
   void checkTiming();
   bool isReleased(int8_t chan_pin = -1);
-  void signalPin(uint8_t sig, uint8_t mode, uint8_t type = DIGITAL, unsigned long time = 50);
+  bool isPressed(int8_t chan_pin = -1);
   int16_t read(int8_t chan_pin = -1);
   uint8_t write(int8_t chan_pin, uint8_t data, int8_t type = -1);
+  void signalPin(uint8_t sig, uint8_t mode, uint8_t type = DIGITAL, unsigned long time = 50);
 
 private:
   // -1 - Not Applicable, 0 - Analog Mode, 1 - Digital Mode, 2 Digital Mode(pulseIn())
