@@ -33,7 +33,9 @@ public:
     void setChannel(int8_t pin, uint8_t set = ENABLED);
     void enable();
     void disable();
-    void signalPin(uint8_t sig, uint8_t mode, uint8_t type = DIGITAL);
+    void checkTiming();
+    bool isReleased(int8_t chan_pin = -1);
+    void signalPin(uint8_t sig, uint8_t mode, uint8_t type = DIGITAL, unsigned long time = 50);
     int16_t read(int8_t chan_pin = -1);
     uint8_t write(int8_t chan_pin, uint8_t data, int8_t type = -1);
 
@@ -48,6 +50,15 @@ private:
     int8_t signal_pin;
     int8_t control_pin[4];
     uint8_t current_channel;
+
+    int btnPin;
+    unsigned long debounceTime;
+
+    int previousSteadyState;  // the previous steady state from the input pin, used to detect pressed and released event
+    int lastSteadyState;      // the last steady state from the input pin
+    int lastFlickerableState; // the last flickerable state from the input pin
+
+    unsigned long lastDebounceTime; // the last time the output pin was toggled
 };
 
 #endif // MUX74HC4067
